@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
+import {encrypt,decrypt,normalizePhone,allowed,assertId,isoDate,email,sameSecret} from '../server/security.mjs';
+test('Google refresh tokens are encrypted and tampering fails closed',()=>{const key=randomBytes(32).toString('base64'),payload={refresh_token:'test-secret'};const encrypted=encrypt(payload,key);assert(!encrypted.includes('test-secret'));assert.deepEqual(decrypt(encrypted,key),payload);const chunks=encrypted.split('.');const bytes=Buffer.from(chunks[2],'base64');bytes[0]^=1;chunks[2]=bytes.toString('base64');assert.throws(()=>decrypt(chunks.join('.'),key));assert.throws(()=>decrypt(encrypted,randomBytes(32).toString('base64')))});
+test('Vietnam phone numbers normalize to the same deduplication key',()=>{assert.equal(normalizePhone('+84 901 234 567'),normalizePhone('0901.234.567'));assert.equal(normalizePhone('84901234567'),'0901234567');assert.equal(normalizePhone(''),null)});
+test('assistant and viewer cannot export, back up, or administer memberships',()=>{for(const action of ['owner','export','backup','members']){assert.equal(allowed('assistant',action),false);assert.equal(allowed('viewer',action),false)}assert(allowed('owner','owner'));assert(allowed('assistant','write'));assert(!allowed('viewer','write'));assert(!allowed('invalid','read'))});
+test('malformed identifiers and dates are rejected before database queries',()=>{assert.throws(()=>assertId("' OR true --"));assert.throws(()=>isoDate('yesterday'));assert.throws(()=>email('a@'));assert.equal(email('User@Example.com'),'user@example.com')});
+test('scheduler bearer validation rejects missing or different secrets',()=>{assert(!sameSecret(undefined,undefined));assert(!sameSecret('abc','abcd'));assert(sameSecret('secret','secret'))});
