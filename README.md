@@ -87,6 +87,8 @@ Test hiện có kiểm tra mã hóa và chống sửa token, chuẩn hóa số �
 
 ## GitHub và triển khai
 
+**Vercel:** source đã có adapter API, `vercel.json` và pool PostgreSQL cho môi trường Functions. Xem [VERCEL.md](VERCEL.md) để import repository, cấu hình database, Google OAuth và domain. Khi chưa cấu hình đủ secrets, bản triển khai chỉ mở chế độ trải nghiệm, không nhận dữ liệu thật.
+
 Workflow `.github/workflows/check.yml` chạy kiểm tra khi push/PR. Chưa tự deploy vào Tenten vì chưa có hosting endpoint/credentials. Mã nguồn không chứa dữ liệu khách thật hoặc secrets. Nếu xuất bản từ repo trên hosting, trỏ lệnh start là `npm start`; migration chạy trước khi rollout. Thiết lập dev/staging/production với database và Google OAuth client riêng.
 
 Không tạo bản fork cho từng sale. Tạo workspace trong quản trị. Khách yêu cầu hạ tầng riêng có thể deploy cùng source với database, secrets và domain độc lập.
