@@ -91,6 +91,15 @@ Token Page/OA được mã hóa AES-256-GCM bằng `ENCRYPTION_KEY`, giống tok
 5. Access token ~25 giờ; CRM tự làm mới bằng refresh token (dùng một lần, xoay vòng). Tin tư vấn Open API thường trong **khung 7 ngày** kể từ tương tác cuối.
 6. Khách mới được tạo theo Zalo `user_id`, nguồn “Zalo OA”.
 
+
+### Khớp khách và gộp hồ sơ
+
+- Tin đến được quét số điện thoại Việt Nam (`0…` / `+84…`). Nếu trong cùng không gian đã có khách cùng SĐT (sau chuẩn hóa), hệ thống **gắn identity kênh** vào hồ sơ đó.
+- Lead tự tạo từ Fanpage/Zalo (hồ sơ trống) sẽ được **gộp mềm** vào khách có sẵn; nếu lead đã có dữ liệu chăm sóc, CRM tạo **gợi ý gộp** để sale duyệt — không xóa thầm dữ liệu.
+- Zalo: khi OA được quyền và user đã chia sẻ, CRM đọc `shared_info.phone` / tên / avatar từ API chi tiết người dùng.
+- Meta: lấy tên và ảnh đại diện theo PSID khi còn trống trên hồ sơ.
+- Một khách có thể gắn nhiều identity (Messenger, Instagram, Zalo OA); hồ sơ hiển thị danh sách kênh, cho phép **gắn hội thoại thủ công** và **gộp hai hồ sơ trùng** (chuyển tin nhắn, identity, hoạt động, lịch; giữ nhật ký; hồ sơ cũ đánh dấu `merged_into`).
+
 ### Giới hạn bản này
 
 - Một Fanpage và một Zalo OA cho mỗi không gian.

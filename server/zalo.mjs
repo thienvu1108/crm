@@ -84,6 +84,27 @@ export async function refreshZaloToken(refreshToken){
  });
 }
 
+
+export async function fetchZaloUserDetail(accessToken, userId){
+ try{
+  const q=new URLSearchParams({data:JSON.stringify({user_id:String(userId)})});
+  const r=await fetch('https://openapi.zalo.me/v3.0/oa/user/detail?'+q,{headers:{access_token:accessToken}});
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok||body.error)return {name:'', avatar:'', phone:null, shared:{}};
+  const d=body.data||{};
+  const shared=d.shared_info||{};
+  const phoneRaw=shared.phone!=null?String(shared.phone):'';
+  return {
+   name:String(shared.name||d.display_name||d.user_alias||'').trim(),
+   avatar:String(d.avatar||d.avatars?.['240']||d.avatars?.['120']||''),
+   phone:phoneRaw||null,
+   shared
+  };
+ }catch{
+  return {name:'', avatar:'', phone:null, shared:{}};
+ }
+}
+
 export async function sendZaloText({accessToken, userId, text}){
  const body=text.trim();
  if(!body||body.length>2000)throw fail('Nội dung tin nhắn trống hoặc vượt 2000 ký tự.');

@@ -90,9 +90,10 @@ export async function fetchUserProfile(psid, pageAccessToken){
  try{
   const p=await graphGet('/'+encodeURIComponent(psid)+'?fields=first_name,last_name,name,profile_pic', pageAccessToken);
   const name=[p.first_name,p.last_name].filter(Boolean).join(' ')||p.name||'';
-  return {name:name||'Khách Messenger', picture:p.profile_pic||''};
+  const avatar=p.profile_pic||'';
+  return {name:name||'Khách Messenger', picture:avatar, avatar};
  }catch{
-  return {name:'Khách Messenger', picture:''};
+  return {name:'Khách Messenger', picture:'', avatar:''};
  }
 }
 
