@@ -9,7 +9,7 @@ Website CRM tiếng Việt cho sale bất động sản. Một mã nguồn, nhi�
 - Máy chủ Node.js + PostgreSQL: đăng nhập Google (OAuth code + PKCE), session HttpOnly, không gian theo lời mời, phân quyền phía máy chủ, lịch sử thay đổi, chống trùng số điện thoại trong từng không gian.
 - Chủ không gian cấp quyền Drive để sao lưu JSON. Người dùng cấp quyền Calendar để đẩy lịch một chiều bằng nút đồng bộ. Không tự gửi lời mời lịch cho khách.
 - Có endpoint sao lưu nền để scheduler ngoài gọi. Chưa tự thiết lập scheduler, thời hạn giữ bản hoặc phục hồi tự động.
-- Meta, Zalo, TikTok hiện là màn hình thiết lập và hướng dẫn; chưa có connector nhận/gửi tin thật. Tài khoản cá nhân theo dõi chăm sóc thủ công.
+- Meta Fanpage (Messenger) và Zalo OA: kết nối chính thức theo không gian (OAuth hoặc token), webhook nhận tin, trả lời trong hồ sơ khách. TikTok vẫn là màn hình hướng dẫn. Tài khoản cá nhân theo dõi chăm sóc thủ công, không đồng bộ inbox.
 - Bản đầu theo dõi một nhu cầu chính/khách; chưa có bảng cơ hội nhiều nhu cầu hoặc kho sản phẩm độc lập.
 - Chưa có UI upload tài liệu Drive hoặc khôi phục backup. Bản sao lưu có danh sách dữ liệu, không sao chép nội dung file bên ngoài.
 - Bản Sites là bản demo tĩnh, riêng tư; backend Node/PostgreSQL không chạy trên Sites. Không nhập thông tin thật vào demo.
@@ -54,6 +54,49 @@ Mở http://127.0.0.1:3000 rồi chọn “Trải nghiệm với dữ liệu m�
 - Cấp SSL/TLS, cấu hình APP_ORIGIN và Google callback khớp chính xác.
 - Bản đầu dùng cổng chung và bộ chọn không gian, đồng thời có đăng ký hostname và kiểm tra TXT DNS trong trang quản trị. Hostname xác minh ánh xạ về đúng không gian ở phía máy chủ. Cần trỏ DNS, cấp HTTPS ở hosting và thêm từng OAuth callback theo hostname trước khi sử dụng. Chưa tự cấp HTTPS hoặc thay đổi DNS; chưa kiểm thử OAuth trên domain thật.
 - Tên miền con hiển thị trong demo chỉ là ví dụ, chưa được tạo trên DNS.
+
+
+## Kết nối Facebook Fanpage và Zalo OA
+
+Chỉ **chủ không gian** được kết nối. Không hỗ trợ đăng nhập cookie/tài khoản cá nhân.
+
+### Biến môi trường thêm
+
+- `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`
+- `ZALO_APP_ID`, `ZALO_APP_SECRET` (và tùy chọn `ZALO_OA_SECRET` nếu không lưu OA secret theo từng kết nối)
+
+Webhook công khai (cần HTTPS trên domain thật):
+
+- Meta: `https://crm.mayhomes.com.vn/webhooks/meta`
+- Zalo: `https://crm.mayhomes.com.vn/webhooks/zalo`
+
+Token Page/OA được mã hóa AES-256-GCM bằng `ENCRYPTION_KEY`, giống token Google.
+
+### Meta (Facebook Page / Messenger)
+
+1. Tạo ứng dụng tại [Meta for Developers](https://developers.facebook.com/), thêm sản phẩm **Messenger** và **Webhooks**.
+2. Cấu hình Webhook URL như trên, Verify Token trùng `META_WEBHOOK_VERIFY_TOKEN`, đăng ký field `messages` (và tùy chọn postbacks/deliveries).
+3. Xin quyền `pages_messaging`, `pages_manage_metadata`, `pages_show_list`, `pages_read_engagement`. App ở chế độ Development chỉ nhắn được với role trên app; khi mở cho khách thật cần **App Review**.
+4. Authorized redirect URI: `https://crm.mayhomes.com.vn/auth/meta/callback` (và localhost nếu cần).
+5. Trong CRM → Kết nối kênh → Facebook Page: dùng **OAuth** (chọn Fanpage) hoặc dán **Page ID + Page Access Token**.
+6. Hệ thống cố gắng gọi `subscribed_apps` cho Page; nếu Meta từ chối vì chưa duyệt quyền, vẫn lưu token và cần hoàn tất subscription trên dashboard Meta.
+7. Tin đến tạo/ghép khách theo PSID, ghi hoạt động, hiện hội thoại trong hồ sơ. Trả lời dùng Send API trong **khung 24 giờ**. Instagram Messaging dùng chung webhook `object=instagram` nếu Page đã gắn IG và đủ quyền (hỗ trợ nhận/hiển thị cơ bản).
+
+### Zalo Official Account
+
+1. Tạo ứng dụng trên [Zalo for Developers](https://developers.zalo.me/), liên kết với OA, bật quyền gửi tin tư vấn và nhận sự kiện tin nhắn.
+2. Đặt Webhook URL như trên; bật sự kiện `user_send_text` (và các `user_send_*` cần thiết). Không bật lọc cú pháp nếu muốn nhận mọi tin.
+3. OAuth v4 (PKCE): trong CRM chọn **Chuẩn bị OAuth v4**, lấy `callback` + `code_challenge`, gắn vào Console nếu bắt buộc, rồi mở link cấp quyền cho admin OA. Callback: `https://crm.mayhomes.com.vn/auth/zalo/callback`.
+4. Hoặc lấy Access/Refresh token từ **API Explorer**, vào CRM → nhập OA ID, token, refresh token và **OA Secret Key** (dùng tính MAC `X-ZEvent-Signature`).
+5. Access token ~25 giờ; CRM tự làm mới bằng refresh token (dùng một lần, xoay vòng). Tin tư vấn Open API thường trong **khung 7 ngày** kể từ tương tác cuối.
+6. Khách mới được tạo theo Zalo `user_id`, nguồn “Zalo OA”.
+
+### Giới hạn bản này
+
+- Một Fanpage và một Zalo OA cho mỗi không gian.
+- Chỉ tin văn bản (đính kèm hiển thị là “[Đính kèm]”).
+- Chưa có hộp thư tổng hợp đa kênh ngoài hồ sơ khách; chưa có Instagram gửi tin chuyên biệt hay TikTok Lead API.
+- Cần hoàn tất App Review / duyệt quyền Zalo trước khi nhận khách thật ngoài tài khoản thử nghiệm.
 
 ## Phân quyền
 

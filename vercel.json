@@ -6,12 +6,13 @@
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,
-      "includeFiles": "dist/**"
+      "includeFiles": "{dist/**,database/**,server/**}"
     }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index?__route=/api/:path*" },
-    { "source": "/auth/:path*", "destination": "/api/index?__route=/auth/:path*" }
+    { "source": "/auth/:path*", "destination": "/api/index?__route=/auth/:path*" },
+    { "source": "/webhooks/:path*", "destination": "/api/index?__route=/webhooks/:path*" }
   ],
   "headers": [
     {

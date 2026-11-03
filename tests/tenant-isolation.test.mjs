@@ -7,8 +7,10 @@ test('actual PostgreSQL engine isolates tenant rows and rejects cross-tenant wri
  const db=new PGlite();
  try{
   await db.exec(await readFile(new URL('../database/001_initial.sql',import.meta.url),'utf8'));
-  // Run twice to verify a fresh install can safely rerun this initial migration.
+  await db.exec(await readFile(new URL('../database/002_channels.sql',import.meta.url),'utf8'));
+  // Run twice to verify a fresh install can safely rerun these migrations.
   await db.exec(await readFile(new URL('../database/001_initial.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../database/002_channels.sql',import.meta.url),'utf8'));
   await db.query('INSERT INTO workspaces(id,slug,name,owner_email) VALUES($1,$2,$3,$4),($5,$6,$7,$8)',[A,'sale-a','A','a@example.com',B,'sale-b','B','b@example.com']);
   await db.exec('CREATE ROLE crm_runtime NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT USAGE ON SCHEMA public TO crm_runtime; GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO crm_runtime; SET ROLE crm_runtime;');
   async function scoped(id,fn){await db.exec('BEGIN');try{await db.query("SELECT set_config('app.workspace_id',$1,true)",[id]);const out=await fn();await db.exec('COMMIT');return out}catch(e){await db.exec('ROLLBACK');throw e}}
