@@ -8,7 +8,7 @@ export default async function handler(req,res){
  const route=url.searchParams.get('__route');
  url.searchParams.delete('__route');
  if(route){
-  if(!/^\/(api|auth)\//.test(route)||route.includes('..')){
+  if(!/^\/(api|auth|webhooks)\//.test(route)||route.includes('..')){
    res.statusCode=400;res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({error:'Đường dẫn không hợp lệ.'}));
   }
   req.url=route+(url.search?'?'+url.searchParams.toString():'');

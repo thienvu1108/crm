@@ -1,3 +1,4 @@
+# OPTIONAL for local/dev containers only — production hosting is Vercel.
 FROM node:24-alpine
 WORKDIR /app
 COPY package*.json ./

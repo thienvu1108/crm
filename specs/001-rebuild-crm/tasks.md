@@ -8,26 +8,26 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Tạo cây `server/{routes,services,db}/`, `web/` SvelteKit, `database/`, `tests/`, giữ `api/`
-- [ ] T002 [P] Scaffold SvelteKit `web/` + `@sveltejs/adapter-vercel` + scripts monorepo
-- [ ] T003 [P] PWA plugin (`@vite-pwa/sveltekit`): manifest Việt, icons, installable
-- [ ] T004 [P] `.env.example` đầy đủ (Google, META/ZALO/TIKTOK, VAPID, JOB_SECRET, DATABASE_URL)
-- [ ] T005 [P] `.gitignore` + ghi chú `Dockerfile` optional-dev trong README (không primary deploy)
-- [ ] T006 [P] `vercel.json`: builds, rewrites `/api` `/auth` `/webhooks`, **crons** → `/api/jobs/worker`
+- [x] T001 Tạo cây `server/{routes,services,db}/`, `web/` SvelteKit, `database/`, `tests/`, giữ `api/`
+- [x] T002 [P] Scaffold SvelteKit `web/` + `@sveltejs/adapter-vercel` + scripts monorepo
+- [x] T003 [P] PWA plugin (`@vite-pwa/sveltekit`): manifest Việt, icons, installable
+- [x] T004 [P] `.env.example` đầy đủ (Google, META/ZALO/TIKTOK, VAPID, JOB_SECRET, DATABASE_URL)
+- [x] T005 [P] `.gitignore` + ghi chú `Dockerfile` optional-dev trong README (không primary deploy)
+- [x] T006 [P] `vercel.json`: builds, rewrites `/api` `/auth` `/webhooks`, **crons** → `/api/jobs/worker`
 
 ---
 
 ## Phase 2: Foundational (blocking)
 
-- [ ] T007 Migrate runner sorted `database/*.sql`
-- [ ] T008 [P] `server/security.mjs` + `tests/security.test.mjs`
-- [ ] T009 [P] `server/db/pool.mjs` + `tx` set `app.workspace_id` (Vercel pool nhỏ)
-- [ ] T010 Router `server/index.mjs` + `api/index.mjs` adapter
-- [ ] T011 [P] Error JSON Việt; chặn ghi khi `workspaces.active=false`
-- [ ] T012 [P] Migration `007_rls_hardening.sql` — FORCE RLS + policies **audit_log, memberships, domains** (+ bảng tenant sẵn có)
-- [ ] T013 [P] Tests RLS cross-tenant cho audit/memberships/domains/customers
-- [ ] T014 [P] SvelteKit layout mobile-first + nav (Tổng quan/Khách/Inbox/Lịch/Cài đặt)
-- [ ] T015 Gate: `npm run check` + `cd web && npm run build`
+- [x] T007 Migrate runner sorted `database/*.sql`
+- [x] T008 [P] `server/security.mjs` + `tests/security.test.mjs`
+- [x] T009 [P] `server/db/pool.mjs` + `tx` set `app.workspace_id` (Vercel pool nhỏ)
+- [x] T010 Router `server/index.mjs` + `api/index.mjs` adapter
+- [x] T011 [P] Error JSON Việt; chặn ghi khi `workspaces.active=false`
+- [x] T012 [P] Migration `007_rls_hardening.sql` — FORCE RLS + policies **audit_log, memberships, domains** (+ bảng tenant sẵn có)
+- [x] T013 [P] Tests RLS cross-tenant cho audit/memberships/domains/customers
+- [x] T014 [P] SvelteKit layout mobile-first + nav (Tổng quan/Khách/Inbox/Lịch/Cài đặt)
+- [x] T015 Gate: `npm run check` + `cd web && npm run build`
 
 **Checkpoint**: Foundation + RLS hardening sẵn sàng
 
@@ -35,24 +35,24 @@
 
 ## Phase 3: US1 Auth, workspace, lock (P1) 🎯
 
-- [ ] T016 [P] [US1] Test OAuth state/session
-- [ ] T017 [P] [US1] Test lock workspace → 403 ghi
-- [ ] T018 [P] [US1] `server/services/google.mjs` PKCE
-- [ ] T019 [US1] Routes auth/me/config (+ VAPID public)
-- [ ] T020 [US1] Platform workspaces + PATCH `active`
-- [ ] T021 [US1] UI login, chọn không gian, admin khóa/mở, banner khóa
-- [ ] T022 [US1] Demo mode thiếu secrets
+- [x] T016 [P] [US1] Test OAuth state/session
+- [x] T017 [P] [US1] Test lock workspace → 403 ghi
+- [x] T018 [P] [US1] `server/services/google.mjs` PKCE
+- [x] T019 [US1] Routes auth/me/config (+ VAPID public)
+- [x] T020 [US1] Platform workspaces + PATCH `active`
+- [x] T021 [US1] UI login, chọn không gian, admin khóa/mở, banner khóa
+- [x] T022 [US1] Demo mode thiếu secrets
 
 ---
 
 ## Phase 4: US2 CRM lõi PWA (P1)
 
-- [ ] T023 [P] [US2] Test phone unique + assignment
-- [ ] T024 [US2] Schema customers/tasks/activities ổn định
-- [ ] T025 [US2] Routes data/customers/tasks/activities
-- [ ] T026 [US2] UI mobile Tổng quan/Khách/Hồ sơ/Lịch/Báo cáo
-- [ ] T027 [US2] Offline cache xem; ghi offline không giả OK
-- [ ] T028 [US2] Audit giao việc/stage
+- [x] T023 [P] [US2] Test phone unique + assignment
+- [x] T024 [US2] Schema customers/tasks/activities ổn định
+- [x] T025 [US2] Routes data/customers/tasks/activities
+- [x] T026 [US2] UI mobile Tổng quan/Khách/Hồ sơ/Lịch/Báo cáo
+- [x] T027 [US2] Offline cache xem; ghi offline không giả OK
+- [x] T028 [US2] Audit giao việc/stage
 
 **Checkpoint MVP**: US1+US2 trên mobile staging
 

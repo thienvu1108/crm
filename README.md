@@ -1,5 +1,20 @@
 # Mayhomes CRM — v0.1.0
 
+## Rebuild MVP (Spec Kit)
+
+Nhánh triển khai MVP: `feat/rebuild-mvp` (artifacts SDD: `speckit/rebuild`, xem `specs/001-rebuild-crm/`).
+
+- Frontend: **SvelteKit PWA** trong `web/` (mobile-first, installable).
+- Backend: Node.js + PostgreSQL, module hóa `server/`; production **Vercel** (+ Cron sau Phase 6).
+- `Dockerfile` chỉ optional cho dev local.
+
+```sh
+npm ci
+npm run check
+cd web && npm ci && npm run build
+```
+
+
 Website CRM tiếng Việt cho sale bất động sản. Một mã nguồn, nhiều không gian riêng. Repository đích: https://github.com/thienvu1108/crm. Tên miền dự kiến: `crm.mayhomes.com.vn`.
 
 ## Trạng thái bản đầu
