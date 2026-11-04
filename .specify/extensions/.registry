@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "git": {
+      "version": "1.0.3",
+      "source": "local",
+      "manifest_hash": "sha256:69b995053c85418e1b2b32e02aea5f52e8b34f01bc2888537bcb2a029b33ce05",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "generic": [
+          "speckit.git.feature",
+          "speckit.git.validate",
+          "speckit.git.remote",
+          "speckit.git.initialize",
+          "speckit.git.commit"
+        ]
+      },
+      "registered_skills": [],
+      "generic_artifact_hashes": {
+        ".specify/commands/speckit.git.feature.md": "cbe46296aa5115c7d047d0b73cc7c49d223de60569f49e1accbd5e8db0c48cd6",
+        ".specify/commands/speckit.git.validate.md": "c51bbe35b3b7a3fda246f05ba721318c49ee396ef409018bd527ec439ebbcd3a",
+        ".specify/commands/speckit.git.remote.md": "b5e9dfddf2910544a508575f2e7cfe4df97098c219e4790511d855698afba670",
+        ".specify/commands/speckit.git.initialize.md": "449a16872c1a72c6c11644749a34bf1473fa60b49d7261f638f9258fb67bab96",
+        ".specify/commands/speckit.git.commit.md": "88f925dd64f3e3d18fa8be3a4646a752bc824ca65057e3071449a9ea9e6eb630"
+      },
+      "installed_at": "2026-11-04T12:55:24.036544+00:00"
+    }
+  }
+}
