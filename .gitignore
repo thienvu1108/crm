@@ -6,3 +6,7 @@ node_modules/
 .DS_Store
 .sites-local/
 artifacts/
+web/node_modules/
+web/.svelte-kit/
+web/build/
+web/.vercel/

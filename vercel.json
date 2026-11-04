@@ -1,25 +1,50 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npm run check",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run check && npm --prefix web ci && npm --prefix web run build",
+  "outputDirectory": "web/build",
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,
-      "includeFiles": "dist/**"
+      "includeFiles": "{database/**,server/**,web/build/**}"
     }
   },
+  "crons": [
+    {
+      "path": "/api/jobs/worker",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index?__route=/api/:path*" },
-    { "source": "/auth/:path*", "destination": "/api/index?__route=/auth/:path*" }
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?__route=/api/:path*"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "/api/index?__route=/auth/:path*"
+    },
+    {
+      "source": "/webhooks/:path*",
+      "destination": "/api/index?__route=/webhooks/:path*"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]

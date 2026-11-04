@@ -11,7 +11,9 @@
     "demo": "node server/preview.mjs",
     "db:migrate": "node --env-file-if-exists=.env server/migrate.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check server/index.mjs && node --check api/index.mjs && node --check dist/app.js && node --test tests/*.test.mjs"
+    "check": "node --check server/index.mjs && node --check api/index.mjs && node --check server/db/pool.mjs && node --check server/db/migrate.mjs && node --test tests/*.test.mjs",
+    "build:web": "npm --prefix web ci && npm --prefix web run build",
+    "check:all": "npm run check && npm --prefix web run check && npm --prefix web run build"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.5",
