@@ -1,239 +1,106 @@
 # Đặc tả tính năng: Làm lại Mayhomes CRM (Spec-Driven)
 
-**Feature Branch**: `speckit/rebuild` (thư mục spec: `001-rebuild-crm`)
-
+**Feature Branch**: `speckit/rebuild` (thư mục: `001-rebuild-crm`)
 **Created**: 2026-11-04
+**Status**: Draft — clarifications đã đóng
+**Input**: Rebuild CRM theo SDD + quyết định Phong 2026-11-04 (đủ bộ).
 
-**Status**: Draft
+## Bối cảnh
 
-**Input**: Làm lại `@Crm-Sale` / Mayhomes CRM theo Spec Kit SDD. Quyết định Phong (2026-11-04): FE = SvelteKit mobile-first PWA; inbox đa kênh IN; TikTok Lead thật IN; restore preview+confirm IN; Instagram chỉ nhận cơ bản; UI khóa/mở không gian IN; kho sản phẩm/nhiều cơ hội = hoãn.
-
-## Bối cảnh hiện trạng (baseline)
-
-Hệ thống hiện tại (`thienvu1108/crm`, v0.1.0): CRM tiếng Việt cho sale BĐS; Node.js 24 + PostgreSQL; frontend vanilla `dist/`; Google OAuth PKCE; Drive/Calendar; demo localStorage; Vercel adapter. PR mở: #1 Fanpage/Zalo; #2 khớp/gộp identity. Rebuild thay FE bằng **SvelteKit PWA**, giữ backend Node/PG, mở rộng kênh (inbox, TikTok Lead, restore, lock workspace).
+Baseline `thienvu1108/crm` v0.1.0 (vanilla + Node/PG). Rebuild: **SvelteKit PWA** + API Node trên **Vercel** + Postgres Neon-compatible; **tái hiện** hành vi PR #1/#2 trong code mới (không merge trước); Inbox, TikTok Lead, restore, lock UI, RLS siết, job queue backup.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Nền tảng đa không gian & đăng nhập Google (Priority: P1)
+### User Story 1 - Đa không gian, Google Auth & khóa/mở (P1)
+Platform admin tạo/khóa/mở không gian; user đăng nhập Google; workspace khóa từ chối ghi.
+**Independent Test**: Khóa workspace → POST khách 403.
+**Acceptance**: tạo workspace+owner; lock chặn ghi; thiếu secrets → demo/503.
 
-Quản trị nền tảng đăng nhập Gmail admin, tạo không gian, chỉ định owner; **khóa/mở không gian** trên UI quản trị. Owner/assistant/viewer đăng nhập Google, chọn không gian; không gian bị khóa không cho ghi nghiệp vụ.
+### User Story 2 - CRM lõi mobile PWA (P1)
+Khách/task/activity/tổng quan/báo cáo; PWA cài được; offline xem; ghi offline không giả OK.
+**Independent Test**: CRUD mobile + offline xem danh sách đã cache.
 
-**Why this priority**: Nền tảng bắt buộc trước dữ liệu thật.
+### User Story 3 - Thành viên & domain (P2)
+Mời/thu hồi member; TXT verify hostname; OAuth theo host.
+**Independent Test**: TXT sai/đúng; thu hồi membership.
 
-**Independent Test**: Tạo 2 không gian; khóa một không gian → API ghi 403; member ngoài bị từ chối.
+### User Story 4 - Backup queue, restore confirm & Calendar (P2)
+Owner enqueue backup; **Vercel Cron** + **Postgres job queue** xử lý có **retry + giám sát/status**; restore preview→confirm; Calendar sync một chiều.
+**Independent Test**: Hủy confirm = DB không đổi; job fail rồi retry; assistant không backup/restore.
 
-**Acceptance Scenarios**:
+### User Story 5 - Fanpage, Zalo, IG nhận + Web Push (P2)
+Tái hiện PR #1: 1 Page + 1 OA; webhook; trả lời văn bản; IG chỉ nhận; Web Push.
+**Independent Test**: chữ ký sai = 0 ghi; push mock khi inbound.
 
-1. **Given** platform admin, **When** tạo không gian + owner_email, **Then** workspace + membership owner + audit.
-2. **Given** admin khóa không gian, **When** member thử tạo khách, **Then** bị từ chối với thông báo tiếng Việt; đọc có thể bị hạn chế theo policy (chỉ metadata/thông báo khóa).
-3. **Given** thiếu secrets backend, **When** `/api/config`, **Then** `mode: demo` và API ghi 503.
+### User Story 6 - Identity match & merge (P3)
+Tái hiện PR #2: khớp SĐT, đa identity, gợi ý/gộp, `merged_into`.
+**Independent Test**: merge chuyển quan hệ con.
 
----
+### User Story 7 - Inbox đa kênh (P2)
+Inbox Fanpage+Zalo+IG; lọc; trả lời (trừ gửi IG).
+**Independent Test**: 3 kênh hiện trong Inbox theo quyền.
 
-### User Story 2 - Hồ sơ khách & chăm sóc cốt lõi trên PWA mobile-first (Priority: P1)
+### User Story 8 - TikTok Lead thật (P2)
+Connector chính thức; lead → khách nguồn TikTok; khớp SĐT/merge policy.
+**Independent Test**: lead mock tạo khách; token sai từ chối.
 
-Sale trên điện thoại thêm/sửa khách, lịch chăm, ghi kết quả, tổng quan/báo cáo. App **cài được (PWA)**; offline **xem** được shell + dữ liệu đã cache; ghi khi offline không giả thành công.
+### User Story 9 - Demo & tài liệu Vercel (P3)
+Demo mode; docs Vercel Postgres/Cron/PWA; CI check+build.
+**Independent Test**: quickstart máy sạch.
 
-**Why this priority**: Giá trị nghiệp vụ chính + trải nghiệm hiện trường.
-
-**Independent Test**: CRUD trên viewport mobile; cài PWA; bật offline xem danh sách đã tải.
-
-**Acceptance Scenarios**:
-
-1. **Given** owner, **When** thêm khách trùng SĐT chuẩn hóa, **Then** lỗi rõ, không tạo trùng.
-2. **Given** assistant được giao A, **When** mở khách B, **Then** bị chặn.
-3. **Given** PWA đã cài, **When** offline, **Then** xem được màn đã cache; nút ghi báo chưa khả dụng/hàng đợi theo thiết kế.
-4. **Given** cập nhật giai đoạn, **When** lưu online, **Then** enum hợp lệ + phản hồi UI mobile.
-
----
-
-### User Story 3 - Thành viên & tên miền (Priority: P2)
-
-Owner mời/thu hồi thành viên; platform admin gắn hostname + verify TXT; định tuyến host đã verify.
-
-**Independent Test**: Verify TXT sai/đúng; thu hồi membership.
-
-**Acceptance Scenarios**:
-
-1. **Given** owner thêm assistant, **When** assistant đăng nhập, **Then** vào đúng không gian với quyền hạn chế.
-2. **Given** TXT sai, **When** verify, **Then** `verified=false` + thông báo Việt.
-3. **Given** host verified, **When** OAuth trên host đó, **Then** callback/cookie theo host; không SSO xuyên domain.
-
----
-
-### User Story 4 - Sao lưu, khôi phục có xác nhận & Calendar (Priority: P2)
-
-Owner export JSON / sao lưu Drive; job `POST /api/jobs/backups`. **Khôi phục**: tải/chọn bản → **preview diff/tóm tắt** → **confirm** mới ghi đè theo policy. Calendar sync một chiều.
-
-**Independent Test**: Mock Google; restore bị hủy ở bước confirm → DB không đổi; assistant không backup/restore.
-
-**Acceptance Scenarios**:
-
-1. **Given** owner có Drive, **When** sao lưu, **Then** JSON trên Drive; token vẫn mã hóa.
-2. **Given** bản backup, **When** preview rồi hủy, **Then** không thay dữ liệu.
-3. **Given** confirm restore, **When** hoàn tất, **Then** dữ liệu workspace khớp bản đã chọn (trong phạm vi restore đã định) + audit.
-4. **Given** Calendar connected, **When** sync, **Then** chỉ event do app tạo cho task được phép xem.
-
----
-
-### User Story 5 - Kênh Fanpage, Zalo OA & Instagram nhận cơ bản (Priority: P2)
-
-Kết nối 1 Fanpage + 1 Zalo OA / workspace; webhook; trả lời trong hồ sơ (và inbox). **Instagram**: chỉ **nhận/hiển thị cơ bản** qua webhook Page (không gửi IG chuyên biệt ở bản này). Web Push khi có tin Fanpage/Zalo mới.
-
-**Independent Test**: Test chữ ký/parser; inbound IG lưu/hiện; push subscription mock.
-
-**Acceptance Scenarios**:
-
-1. **Given** Page/OA connected, **When** tin văn bản hợp lệ, **Then** tạo/ghép khách + message + có thể đẩy Web Push cho member được phép.
-2. **Given** chữ ký sai, **When** webhook, **Then** từ chối, không ghi DB.
-3. **Given** object Instagram trên webhook Page, **When** nhận, **Then** hiện hội thoại cơ bản; không có nút gửi IG chuyên biệt.
-4. **Given** ngoài khung Meta 24h / Zalo ~7 ngày, **When** gửi, **Then** lỗi tiếng Việt rõ.
-
----
-
-### User Story 6 - Khớp SĐT, đa identity & gộp hồ sơ (Priority: P3)
-
-Khớp SĐT; nhiều identity; gợi ý gộp; merge thủ công; `merged_into`.
-
-**Independent Test**: identity-match tests; merge chuyển quan hệ con.
-
-**Acceptance Scenarios**:
-
-1. **Given** SĐT trùng tin Zalo, **When** inbound, **Then** gắn identity khi khớp chắc.
-2. **Given** xung đột dữ liệu, **When** nghi trùng, **Then** `merge_suggestions` pending, không xóa thầm.
-3. **Given** chấp nhận gộp, **When** merge, **Then** chuyển messages/identities/activities/tasks + `merged_into`.
-
----
-
-### User Story 7 - Hộp thư tổng hợp đa kênh (Priority: P2)
-
-Một màn **Inbox** mobile-first gom hội thoại Fanpage + Zalo + Instagram (nhận), lọc chưa đọc/theo kênh, mở thread → hồ sơ khách / trả lời (trừ IG gửi).
-
-**Why this priority**: Phong chọn IN scope; sale cần một chỗ xử lý tin thay vì chỉ trong từng hồ sơ.
-
-**Independent Test**: Inbound 3 kênh xuất hiện trong Inbox; lọc theo provider; quyền assignment tôn trọng.
-
-**Acceptance Scenarios**:
-
-1. **Given** tin mới Meta/Zalo/IG, **When** mở Inbox, **Then** thấy thread sắp xếp theo hoạt động mới nhất.
-2. **Given** assistant, **When** mở Inbox, **Then** chỉ thread khách được giao (hoặc policy đã ghi).
-3. **Given** thread Zalo, **When** trả lời từ Inbox, **Then** tin outbound lưu và hiện ở hồ sơ + Inbox.
-
----
-
-### User Story 8 - TikTok Lead tích hợp thật (Priority: P2)
-
-Kết nối TikTok Lead chính thức (không cookie cá nhân): nhận lead → tạo/ghép khách + nguồn TikTok; cấu hình trong Kết nối kênh; mã hóa secret.
-
-**Independent Test**: Webhook/lead mock tạo customer; chữ ký/token sai bị từ chối.
-
-**Acceptance Scenarios**:
-
-1. **Given** TikTok connected, **When** lead hợp lệ, **Then** khách mới hoặc khớp theo SĐT/field map + activity/nguồn TikTok.
-2. **Given** cấu hình thiếu/sai, **When** thử kết nối, **Then** UI hướng dẫn tiếng Việt, status error.
-3. **Given** lead trùng SĐT, **When** inbound, **Then** gắn vào khách có sẵn hoặc gợi ý gộp theo cùng policy identity.
-
----
-
-### User Story 9 - Demo & tài liệu vận hành (Priority: P3)
-
-Demo khi thiếu secrets; README/VERCEL/SvelteKit PWA docs tiếng Việt; CI check API + build FE.
-
-**Acceptance Scenarios**:
-
-1. **Given** thiếu secrets, **When** mở app, **Then** demo + cảnh báo không nhập dữ liệu thật.
-2. **Given** dev máy sạch, **When** theo quickstart, **Then** chạy được API + `web` SvelteKit.
-
----
-
-### User Story 10 - Khoảng trống hoãn / non-goal giai đoạn này (Priority: —)
-
-- **Kho sản phẩm độc lập** và **nhiều cơ hội/nhu cầu trên một khách**: **hoãn** (non-goal giai đoạn rebuild này).
-- Gửi Instagram chuyên biệt: non-goal (chỉ nhận cơ bản).
-
-**Acceptance**: Spec/plan/tasks không lên lịch implement các mục trên trừ khi có spec mới.
-
----
+### User Story 10 - Non-goals giai đoạn này
+Kho sản phẩm / nhiều cơ hội **hoãn**; không gửi IG chuyên biệt; Docker không phải deploy chính.
 
 ### Edge Cases
-
-- Workspace locked: mọi POST/PATCH nghiệp vụ 403; UI hiện banner khóa.
-- Restore confirm timeout / mất mạng giữa chừng: không để DB nửa vời (transaction).
-- Web Push user chưa cấp quyền: Inbox/hồ sơ vẫn hoạt động; không spam xin quyền.
-- Offline ghi: không đánh dấu “đã lưu” khi chưa ACK server.
-- Webhook trùng id: idempotent.
-- TikTok field thiếu SĐT: vẫn tạo lead với cảnh báo thiếu SĐT.
-- `merged_into`: ẩn khỏi danh sách active; deep-link báo đã gộp.
+- Workspace locked; restore nửa chừng (transaction); job hết retry → status `dead` + thấy trên UI/admin; Cron trùng không double-process (lease/lock); offline ghi; webhook idempotent; RLS membership/audit/domains chặn cross-tenant kể cả khi API lỗi.
 
 ## Requirements *(mandatory)*
 
-### Functional Requirements
-
-- **FR-001**: MUST đăng nhập Google OAuth code + PKCE, session HttpOnly, đăng xuất hủy session.
-- **FR-002**: MUST đa workspace; chỉ platform admin tạo theo lời mời owner_email.
-- **FR-003**: MUST thực thi owner/assistant/viewer trên API workspace-scoped.
-- **FR-004**: MUST CRUD khách + chống trùng `phone_normalized` + enum interest/stage.
-- **FR-005**: MUST tasks (call/message/viewing) + activities (call/message/meeting), dời lịch, hoàn tất.
-- **FR-006**: MUST Tổng quan, khách (lọc/tìm), lịch, báo cáo, hồ sơ — **SvelteKit, mobile-first, tiếng Việt**.
-- **FR-007**: Owner MUST mời/thu hồi thành viên (trừ owner) và cập nhật settings.
-- **FR-008**: Platform admin MUST đăng ký/verify hostname TXT và **khóa/mở không gian trên UI**.
-- **FR-009**: Owner MUST export JSON, sao lưu Drive; job backups với `JOB_SECRET`.
-- **FR-010**: Owner MUST **restore backup với preview + confirm**; hủy preview = không đổi dữ liệu.
-- **FR-011**: User MUST Calendar sync một chiều task được phép xem; không tự mời khách.
-- **FR-012**: Token Google/Meta/Zalo/TikTok MUST AES-256-GCM; key không nằm trong backup JSON.
-- **FR-013**: MUST cách ly tenant bằng membership + `app.workspace_id` + FORCE RLS.
-- **FR-014**: MUST demo mode khi backend chưa sẵn sàng, cảnh báo rõ.
-- **FR-015**: MUST Fanpage Messenger + Zalo OA (OAuth/token, webhook, văn bản, 1 page + 1 OA / workspace).
-- **FR-016**: MUST Instagram **chỉ nhận/hiển thị cơ bản**; không gửi IG chuyên biệt giai đoạn này.
-- **FR-017**: MUST khớp identity theo SĐT, đa identity, gợi ý/gộp hồ sơ (baseline PR #2).
-- **FR-018**: MUST **Inbox đa kênh** (Fanpage + Zalo + Instagram nhận) mobile-first.
-- **FR-019**: MUST **TikTok Lead tích hợp thật** (nhận lead → CRM).
-- **FR-020**: MUST PWA: installable, offline cache xem, Web Push tin Fanpage/Zalo mới (và kênh bật push).
-- **FR-021**: MUST audit_log hành động nhạy cảm (workspace lock, restore, merge, backup…).
-- **FR-022**: Migration SQL MUST idempotent; runtime role không BYPASSRLS.
-- **FR-023**: Frontend MUST là **SvelteKit** (đã quyết định — không còn vanilla/React/Vue).
-- **FR-024**: Kho sản phẩm / nhiều cơ hội per khách MUST NOT implement ở giai đoạn này (hoãn).
-- **FR-025**: [NEEDS CLARIFICATION: Hosting production chính — Vercel, VPS/Docker, hay cả hai?]
-- **FR-026**: [NEEDS CLARIFICATION: Merge PR #1/#2 vào baseline trước rewrite hay tái hiện hành vi trong rebuild?]
-- **FR-027**: [NEEDS CLARIFICATION: Có siết RLS thêm cho audit_log / memberships / domains không?]
-- **FR-028**: [NEEDS CLARIFICATION: Job backup — giữ vòng lặp đồng bộ hay tách queue khi nhiều workspace?]
+- **FR-001**: Google OAuth PKCE + session HttpOnly + logout.
+- **FR-002**: Đa workspace; chỉ platform admin tạo theo lời mời.
+- **FR-003**: Vai trò owner/assistant/viewer trên API.
+- **FR-004**: CRUD khách + chống trùng phone_normalized + enum interest/stage.
+- **FR-005**: Tasks + activities (dời lịch, hoàn tất).
+- **FR-006**: UI SvelteKit mobile-first tiếng Việt (tổng quan/khách/lịch/báo cáo/hồ sơ).
+- **FR-007**: Owner quản lý thành viên + settings.
+- **FR-008**: Platform admin domains TXT + **khóa/mở workspace UI**.
+- **FR-009**: Owner enqueue backup Drive/export; **job queue Postgres + Vercel Cron**, retry + monitoring/status.
+- **FR-010**: Restore **preview + confirm**; cancel = no-op.
+- **FR-011**: Calendar sync một chiều.
+- **FR-012**: Token mã hóa AES-256-GCM.
+- **FR-013**: Membership + `app.workspace_id` + **FORCE RLS** trên bảng tenant **và** audit_log, memberships, domains (hardening IN).
+- **FR-014**: Demo mode khi thiếu secrets.
+- **FR-015**: Fanpage + Zalo OA (tái hiện PR #1 trong rebuild).
+- **FR-016**: Instagram chỉ nhận/hiển thị cơ bản.
+- **FR-017**: Identity match/merge (tái hiện PR #2 trong rebuild).
+- **FR-018**: Inbox đa kênh Fanpage+Zalo+IG.
+- **FR-019**: TikTok Lead tích hợp thật.
+- **FR-020**: PWA installable + offline xem + Web Push Fanpage/Zalo.
+- **FR-021**: Audit hành động nhạy cảm (lock, restore, merge, backup jobs…).
+- **FR-022**: Migration idempotent; runtime không BYPASSRLS.
+- **FR-023**: Frontend **SvelteKit** PWA.
+- **FR-024**: Không implement kho sản phẩm / nhiều cơ hội (hoãn).
+- **FR-025**: Production hosting **Vercel** (Postgres/Neon-compatible, Cron); Docker optional dev only.
+- **FR-026**: **Tái hiện** hành vi PR #1/#2 trong rebuild; **không** yêu cầu merge PR trước.
+- **FR-027**: RLS hardening audit_log + memberships + domains **IN scope**.
+- **FR-028**: Backup qua **job queue** (Postgres-backed) + Cron + retries + monitoring — không vòng lặp đồng bộ một request.
 
 ### Key Entities
+User, Workspace(`active`), Membership, Domain, Session, OAuthState, Customer, Task, Activity, Connection, CalendarLink, ChannelConnection/Route/Identity/Message, MergeSuggestion, AuditLog, PushSubscription, BackupRestoreSession, **Job** / **JobAttempt** (queue).
 
-- **User**, **Workspace** (gồm `active` cho khóa/mở), **Membership**, **Domain**
-- **Session**, **OAuthState**
-- **Customer** (`merged_into`, `avatar_url`), **Task**, **Activity**
-- **Connection**, **CalendarLink**
-- **ChannelConnection** (meta_page | zalo_oa | tiktok_lead…), **ChannelRoute**, **ChannelIdentity**, **ChannelMessage**
-- **MergeSuggestion**, **AuditLog**
-- **PushSubscription** (user/device endpoint Web Push)
-- **BackupRestoreSession** (preview token / trạng thái confirm — logic hoặc bảng tùy plan)
+### Non-Goals
+Sản phẩm/cơ hội đa nhu cầu; gửi IG chuyên biệt; cookie cá nhân; native app; SSO xuyên domain; Docker là primary deploy; merge PR #1/#2 như điều kiện tiên quyết.
 
-### Non-Goals (giai đoạn này)
-
-- Kho sản phẩm độc lập; nhiều cơ hội/nhu cầu trên một khách
-- Gửi tin Instagram chuyên biệt / Instagram DM full
-- Cookie tài khoản cá nhân FB/Zalo/TikTok
-- App native iOS/Android (PWA thay thế)
-- SSO xuyên domain
-
-## Success Criteria *(mandatory)*
-
-### Measurable Outcomes
-
-- **SC-001**: Sale hoàn tất thêm khách + lịch chăm + ghi kết quả ≤ 3 phút trên mobile staging.
-- **SC-002**: 100% API workspace-scoped từ chối cross-tenant trong test PGlite/RLS.
-- **SC-003**: `npm run check` (API) + build/lint SvelteKit xanh.
-- **SC-004**: Lighthouse/PWA installable trên Chrome Android staging; offline xem được ít nhất shell + danh sách khách đã mở.
-- **SC-005**: Webhook chữ ký sai = 0 tin được tạo; restore hủy confirm = 0 thay đổi DB.
-- **SC-006**: Inbox hiển thị inbound Meta/Zalo/IG trong ≤ 5s sau khi test webhook (staging).
-- **SC-007**: TikTok lead test tạo được khách với nguồn TikTok trên staging.
-- **SC-008**: Tài liệu tiếng Việt đủ cấu hình Google + Meta/Zalo/TikTok + PWA push trên staging.
+## Success Criteria
+- **SC-001**: Sale ≤ 3 phút thêm khách+chăm trên mobile staging.
+- **SC-002**: 100% cross-tenant bị chặn kể cả qua bảng audit/memberships/domains trong test RLS.
+- **SC-003**: API check + `web` build xanh trên CI.
+- **SC-004**: PWA installable; offline xem shell+danh sách đã mở.
+- **SC-005**: Webhook chữ ký sai = 0 tin; restore cancel = 0 đổi DB.
+- **SC-006**: Inbox hiện inbound ≤ 5s sau webhook test.
+- **SC-007**: TikTok lead test tạo khách nguồn TikTok.
+- **SC-008**: Backup job fail → retry → thành công hoặc `dead` có thể xem trên UI giám sát.
+- **SC-009**: Docs đủ cấu hình Vercel + Postgres + Cron + PWA push.
 
 ## Assumptions
-
-- Backend giữ Node.js 24 + PostgreSQL + `pg`.
-- FE = SvelteKit PWA theo quyết định Phong 2026-11-04.
-- Hành vi PR #1/#2 là nguồn sự thật kênh/identity (cách đưa vào baseline còn mở — FR-026).
-- Web Push dùng VAPID; cần HTTPS trên domain thật.
-- Không email marketing / SMS gateway trong rebuild này.
+- Node 24 + `pg` + SvelteKit; Vercel production; hành vi PR #1/#2 = spec kỹ thuật để viết lại; VAPID HTTPS; không SMS/email marketing.

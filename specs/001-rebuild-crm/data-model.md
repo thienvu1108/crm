@@ -1,51 +1,33 @@
-# Mô hình dữ liệu: Mayhomes CRM (rebuild)
+# Mô hình dữ liệu
 
 **Date**: 2026-11-04
 
-## Sơ đồ quan hệ (logic)
+## Quan hệ
 
 ```text
-users ──┬── memberships ── workspaces (active) ── domains
-        │                      │
-        ├── sessions           ├── customers ──┬── tasks
-        ├── oauth_states       │               ├── activities
-        ├── push_subscriptions │               ├── channel_identities ── channel_messages
-        └── connections ── calendar_links      └── merge_suggestions
-                               ├── channel_connections (meta_page|zalo_oa|tiktok_lead)
-                               ├── channel_routes
-                               ├── backup_restore_sessions (optional)
-                               └── audit_log
+users ── memberships ── workspaces(active) ── domains
+  │                         ├── customers ── tasks/activities/identities/messages/merges
+  ├── sessions              ├── channel_connections/routes
+  ├── oauth_states          ├── connections/calendar_links
+  ├── push_subscriptions    ├── backup_restore_sessions
+  └── …                     ├── jobs / job_attempts
+                            └── audit_log
 ```
 
-## Thay đổi / bổ sung so với baseline
+## RLS (bắt buộc FORCE)
 
-### workspaces
-- Dùng `active` cho **khóa/mở**; platform admin PATCH; API ghi kiểm tra `active=true`.
+**Có RLS workspace (hoặc policy tương đương an toàn):**
+customers, tasks, activities, connections, channel_connections, channel_identities, channel_messages, merge_suggestions, push_subscriptions, backup_restore_sessions, jobs (theo workspace_id), **audit_log**, **memberships**, **domains**.
 
-### channel_connections.provider
-- Mở rộng CHECK: `meta_page` | `zalo_oa` | `tiktok_lead` (và metadata TikTok trong JSON).
-- UNIQUE(workspace, provider) giữ 1 kết nối / loại / không gian ở bản đầu.
+Policy mẫu: `workspace_id::text = current_setting('app.workspace_id', true)` với WITH CHECK; memberships/domains/audit cần policy phù hợp (platform admin vs member) — ghi rõ trong migration `00N_rls_hardening.sql`. `channel_routes` vẫn lookup webhook không RLS nhưng chỉ map id→workspace.
 
-### channel_identities / channel_messages.provider
-- Thêm/giữ `instagram` cho nhận; `tiktok_lead` cho lead events nếu lưu dạng message/activity.
+## Jobs
 
-### push_subscriptions (mới)
-- `id`, `workspace_id` nullable hoặc theo user global, `user_id`, `endpoint` UNIQUE, `p256dh`, `auth` (encrypted or protected), `user_agent`, `created_at`
-- RLS theo user hoặc workspace membership khi gửi.
+`jobs`: id, workspace_id, type (`backup.drive`…), payload jsonb, status, attempts, max_attempts, run_after, locked_at, locked_by, last_error, created_at, updated_at, finished_at  
+`job_attempts` (optional): job_id, attempt, error, created_at
 
-### backup_restore_sessions (mới — hoặc ephemeral server-side)
-- `id`, `workspace_id`, `actor_id`, `source` (drive_file_id | upload), `preview_summary` JSONB, `status` pending_confirm|applied|cancelled|expired, `expires_at`
-- Apply trong transaction; audit `backup.restore`.
+## Restore / Push / Channels
+Như plan trước + provider `tiktok_lead`; Instagram trên identity/message.
 
-### Inbox
-- Không bắt buộc bảng riêng: query `channel_messages` gần nhất GROUP BY identity/customer + provider; optional `inbox_read_states(user_id, thread_key, last_read_at)`.
-
-## RLS
-
-FORCE trên: customers, tasks, activities, connections, channel_*, merge_suggestions, push_subscriptions (workspace-scoped), backup_restore_sessions.
-
-[NEEDS CLARIFICATION]: siết RLS cho audit_log / memberships / domains?
-
-## Migration
-
-`001_initial` → `002_channels` → `003_identity_enrichment` → `004_push_subscriptions` → `005_tiktok_and_restore` (đặt tên cuối khi implement). Runner đọc sorted `database/*.sql`.
+## Migrations (ý)
+001_initial → 002_channels → 003_identity → 004_push → 005_tiktok_restore → 006_jobs_queue → 007_rls_hardening
