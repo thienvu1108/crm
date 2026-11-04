@@ -5,86 +5,47 @@
 ## Sơ đồ quan hệ (logic)
 
 ```text
-users ──┬── memberships ── workspaces ── domains
+users ──┬── memberships ── workspaces (active) ── domains
         │                      │
         ├── sessions           ├── customers ──┬── tasks
         ├── oauth_states       │               ├── activities
-        └── connections ── calendar_links      ├── channel_identities ── channel_messages
-                               │               └── merge_suggestions
-                               ├── channel_connections
+        ├── push_subscriptions │               ├── channel_identities ── channel_messages
+        └── connections ── calendar_links      └── merge_suggestions
+                               ├── channel_connections (meta_page|zalo_oa|tiktok_lead)
+                               ├── channel_routes
+                               ├── backup_restore_sessions (optional)
                                └── audit_log
-
-channel_routes (provider, external_id) → workspace_id   # không RLS; chỉ định tuyến webhook
 ```
 
-## Thực thể chi tiết
-
-### users
-- `id` UUID PK, `google_sub` UNIQUE, `email`, `name`, `created_at`
+## Thay đổi / bổ sung so với baseline
 
 ### workspaces
-- `id`, `slug` UNIQUE, `name`, `owner_email`, `active`, `settings` JSONB, `created_at`
+- Dùng `active` cho **khóa/mở**; platform admin PATCH; API ghi kiểm tra `active=true`.
 
-### memberships
-- `workspace_id`, `user_id` nullable (mời trước khi user login), `email`, `role` ∈ {owner,assistant,viewer}
-- UNIQUE(workspace_id, email)
+### channel_connections.provider
+- Mở rộng CHECK: `meta_page` | `zalo_oa` | `tiktok_lead` (và metadata TikTok trong JSON).
+- UNIQUE(workspace, provider) giữ 1 kết nối / loại / không gian ở bản đầu.
 
-### domains
-- `hostname` PK, `workspace_id`, `verified`, `verification_token`, `created_at`
+### channel_identities / channel_messages.provider
+- Thêm/giữ `instagram` cho nhận; `tiktok_lead` cho lead events nếu lưu dạng message/activity.
 
-### sessions / oauth_states
-- Session: `token_hash` PK, `user_id`, `expires_at`
-- OAuth: `state_hash`, `browser_hash`, `verifier`, optional user/workspace, `provider`, `request_origin`, `expires_at`
+### push_subscriptions (mới)
+- `id`, `workspace_id` nullable hoặc theo user global, `user_id`, `endpoint` UNIQUE, `p256dh`, `auth` (encrypted or protected), `user_agent`, `created_at`
+- RLS theo user hoặc workspace membership khi gửi.
 
-### customers
-- Thuộc workspace; `phone` + `phone_normalized`; UNIQUE(workspace_id, phone_normalized) WHERE NOT NULL
-- `interest` ∈ high|medium|low|unknown; `stage` ∈ new|consulting|viewing|negotiating|won|lost
-- `budget` ≥ 0; `assigned_to` → users; `avatar_url`; `merged_into` → customers (cùng workspace)
-- Index active: WHERE `merged_into IS NULL`
+### backup_restore_sessions (mới — hoặc ephemeral server-side)
+- `id`, `workspace_id`, `actor_id`, `source` (drive_file_id | upload), `preview_summary` JSONB, `status` pending_confirm|applied|cancelled|expired, `expires_at`
+- Apply trong transaction; audit `backup.restore`.
 
-### tasks
-- `kind` call|message|viewing; `status` pending|done|cancelled; FK composite workspace+customer
+### Inbox
+- Không bắt buộc bảng riêng: query `channel_messages` gần nhất GROUP BY identity/customer + provider; optional `inbox_read_states(user_id, thread_key, last_read_at)`.
 
-### activities
-- `kind` call|message|meeting; `note`; actor `user_id`
+## RLS
 
-### connections
-- `provider` drive|calendar; `encrypted_token`; UNIQUE(workspace,user,provider)
+FORCE trên: customers, tasks, activities, connections, channel_*, merge_suggestions, push_subscriptions (workspace-scoped), backup_restore_sessions.
 
-### calendar_links
-- PK (`connection_id`,`task_id`) → `event_id`
+[NEEDS CLARIFICATION]: siết RLS cho audit_log / memberships / domains?
 
-### channel_connections
-- `provider` meta_page|zalo_oa; UNIQUE(workspace,provider); UNIQUE(provider,external_id)
-- `encrypted_secrets`, `status` connected|error|disconnected
+## Migration
 
-### channel_routes
-- PK (provider, external_id) → workspace_id (webhook lookup)
-
-### channel_identities
-- UNIQUE(workspace, provider, external_user_id); provider meta_page|zalo_oa|instagram
-- `avatar_url`, `metadata` JSONB
-
-### channel_messages
-- `direction` inbound|outbound; unique partial (workspace,provider,external_message_id)
-
-### merge_suggestions
-- `reason` (vd phone_match), `status` pending|accepted|dismissed
-
-### audit_log
-- `workspace_id`, `actor_id`, `action`, `entity_id`, `created_at`
-
-## Quy tắc RLS
-
-Bật ENABLE + FORCE trên: customers, tasks, activities, connections, channel_connections, channel_identities, channel_messages, merge_suggestions.
-
-Policy `workspace_isolation`: `workspace_id::text = current_setting('app.workspace_id', true)`.
-
-Không RLS trên: users, workspaces, memberships, domains, sessions, oauth_states, channel_routes, audit_log (kiểm soát ở API / platform admin). [NEEDS CLARIFICATION: có siết RLS/audit chặt hơn không?]
-
-## Migration strategy
-
-1. Giữ `001_initial.sql`.
-2. Thêm `002_channels.sql`, `003_identity_enrichment.sql` vào runner migrate (theo thứ tự tên file).
-3. Migrate runner đọc mọi `database/*.sql` sorted — thay vì hardcode một file.
-4. Mọi thay đổi schema sau này = file số mới; có ghi chú rollback trong PR.
+`001_initial` → `002_channels` → `003_identity_enrichment` → `004_push_subscriptions` → `005_tiktok_and_restore` (đặt tên cuối khi implement). Runner đọc sorted `database/*.sql`.

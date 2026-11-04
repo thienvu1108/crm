@@ -2,101 +2,90 @@
 
 **Branch**: `speckit/rebuild` | **Date**: 2026-11-04 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Đặc tả từ `/specs/001-rebuild-crm/spec.md`
+**Input**: Đặc tả `/specs/001-rebuild-crm/spec.md` + quyết định Phong 2026-11-04 (SvelteKit PWA; inbox; TikTok Lead; restore; lock UI; IG nhận; hoãn sản phẩm/cơ hội).
 
 ## Summary
 
-Làm lại Mayhomes CRM theo SDD: tái cấu trúc mã nguồn dễ bảo trì, giữ **Node.js 24 + PostgreSQL** (không đổi stack trừ khi Phong quyết định khác), tái hiện toàn bộ hành vi `main` cộng baseline kênh Meta/Zalo (PR #1) và khớp/gộp identity (PR #2), đồng thời chừa chỗ cho các khoảng trống được Phong chọn. Frontend mặc định **giữ vanilla JS module** trong `dist/` (hoặc `frontend/`) để giảm rủi ro; nếu Phong chọn framework sẽ cập nhật plan.
+Rebuild Mayhomes CRM theo SDD: **backend Node.js 24 + PostgreSQL** (giữ), **frontend SvelteKit mobile-first PWA** (installable, offline cache xem, Web Push tin Fanpage/Zalo). Tái hiện `main` + hành vi PR #1/#2; thêm Inbox đa kênh, TikTok Lead thật, restore preview+confirm, UI khóa/mở workspace. Hoãn kho sản phẩm / nhiều cơ hội.
 
 ## Technical Context
 
-**Language/Version**: Node.js 24.x (ESM), SQL (PostgreSQL 15+)
+**Language/Version**: Node.js 24.x (ESM) backend; SvelteKit (Svelte 5 nếu ổn định với toolchain chọn lúc implement) + TypeScript khuyến nghị cho `web/`
 
-**Primary Dependencies**: `pg`, `@vercel/functions` (adapter), Google OAuth/Drive/Calendar REST, Meta Graph, Zalo OA Open API; test `@electric-sql/pglite` + `node:test`
+**Primary Dependencies**: Backend `pg`, `@vercel/functions`, Google/Meta/Zalo/TikTok APIs, `web-push` (VAPID). Frontend SvelteKit, `@vite-pwa/sveltekit` (hoặc tương đương), adapter theo hosting. Test: `node:test` + PGlite; FE unit/e2e tối thiểu khi có.
 
-**Storage**: PostgreSQL với RLS FORCE trên bảng tenant; secrets/token mã hóa AES-256-GCM
+**Storage**: PostgreSQL + RLS FORCE; token mã hóa AES-256-GCM; Cache Storage / IndexedDB cho offline xem (không phải source of truth)
 
-**Testing**: `node --test` (security, tenant-isolation, vercel-adapter, channels, identity-match); `npm run check` = syntax + tests
+**Testing**: `node --test` (security, tenant, channels, identity, tiktok, restore); `npm run check`; `npm run build` trong `web/`
 
-**Target Platform**: Web responsive; deploy Vercel Functions và/hoặc Docker/Node process sau reverse proxy HTTPS
+**Target Platform**: Mobile-first PWA (Android/iOS Safari trong giới hạn PWA); desktop OK; HTTPS bắt buộc cho Push/install
 
-**Project Type**: Web application (API Node + static frontend)
+**Project Type**: Web app — API Node tách + SvelteKit frontend (monorepo)
 
-**Performance Goals**: Đủ cho đội sale nhỏ–trung (≤ vài trăm user active, ≤ ~10k khách/workspace ở bản đầu); p95 API CRUD < 500ms trên staging vừa
+**Performance Goals**: p95 API CRUD < 500ms staging; TTI mobile 4G chấp nhận được cho shell PWA; push gần realtime sau webhook
 
-**Constraints**: Cách ly tenant tuyệt đối; không BYPASSRLS runtime; không lưu plaintext token; UI tiếng Việt; không wildcard OAuth; Functions cold start chấp nhận được
+**Constraints**: Tenant isolation; không BYPASSRLS; không plaintext token; UI Việt; không wildcard OAuth; offline không giả ghi thành công
 
-**Scale/Scope**: Đa workspace Mayhomes; 1 Fanpage + 1 Zalo OA / workspace ở bản kênh đầu; mở rộng queue backup khi số workspace tăng
+**Scale/Scope**: Đa workspace; 1 Fanpage + 1 Zalo OA / workspace; TikTok Lead / workspace; Inbox gộp Meta/Zalo/IG
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-
 | Nguyên tắc | Trạng thái |
 |---|---|
-| I. Spec trước code | Đạt — artifacts trong `specs/001-rebuild-crm/` |
-| II. Cách ly đa không gian | Đạt — giữ RLS + membership; mở rộng policy cho bảng kênh/merge |
-| III. Bảo mật dữ liệu | Đạt — ENCRYPTION_KEY, HttpOnly, OAuth chính thức |
-| IV. Phân quyền | Đạt — owner/assistant/viewer + platform admin |
-| V. Stack đơn giản + test | Đạt — giữ Node/PG; tách module; bắt buộc `npm run check` |
-
-Vi phạm cần biện minh: chưa có (xem Complexity Tracking nếu chọn framework FE hoặc queue riêng).
+| I. Spec trước code | Đạt |
+| II. Cách ly đa không gian | Đạt — mở rộng bảng kênh/TikTok/push/restore |
+| III. Bảo mật | Đạt — thêm VAPID/TikTok secrets mã hóa |
+| IV. Phân quyền + lock workspace | Đạt |
+| V. Mobile-first PWA SvelteKit | Đạt — đã phê duyệt |
+| VI. Backend Node/PG + test | Đạt |
 
 ## Project Structure
 
-### Documentation (this feature)
+### Documentation
 
 ```text
 specs/001-rebuild-crm/
-├── plan.md
-├── research.md
-├── data-model.md
-├── quickstart.md
-├── contracts/
-│   └── api-overview.md
-├── checklists/
-│   └── requirements.md
-└── tasks.md
+├── plan.md, research.md, data-model.md, quickstart.md, tasks.md
+├── contracts/api-overview.md
+└── checklists/requirements.md
 ```
 
-### Source Code (repository root — mục tiêu tái cấu trúc)
+### Source Code (mục tiêu)
 
 ```text
-api/                     # Vercel adapter (giữ)
+api/                      # Vercel adapter → server handler
 server/
-├── index.mjs            # HTTP bootstrap + router mỏng
-├── routes/              # auth, platform, customers, tasks, backup, channels…
-├── services/            # google, meta, zalo, backup, merge…
-├── db/                  # pool, tx, migrate runner
+├── index.mjs
+├── routes/               # auth, platform, crm, backup, channels, inbox, push, tiktok…
+├── services/             # google, meta, zalo, tiktok, backup, restore, merge, push…
+├── db/
 └── security.mjs
-database/
-├── 001_initial.sql
-├── 002_channels.sql
-├── 003_identity_enrichment.sql
-└── …                    # migration mới khi cần
-frontend/ hoặc dist/     # UI tiếng Việt (vanilla mặc định)
-tests/
-├── security.test.mjs
-├── tenant-isolation.test.mjs
-├── channels.test.mjs
-├── identity-match.test.mjs
-└── vercel-adapter.test.mjs
+database/                 # 001_initial, 002_channels, 003_identity, 004_push, 005_tiktok, …
+web/                      # SvelteKit app (mobile-first PWA)
+├── src/routes/           # tổng quan, khách, inbox, lịch, báo cáo, cài đặt, admin…
+├── src/lib/
+├── static/               # icons, manifest assets
+└── vite.config / PWA plugin
+tests/                    # API / integration
 ```
 
-**Structure Decision**: Giữ monorepo hiện có; **tách** `server/index.mjs` / `dist/app.js` đang nén thành module theo domain. Không microservice. Adapter Vercel `api/index.mjs` gọi cùng handler. Dockerfile giữ cho VPS.
+**Structure Decision**: Monorepo; **thay** `dist/` vanilla bằng `web/` SvelteKit; backend module hóa `server/`. Static build SvelteKit có thể serve từ Node hoặc CDN/Vercel tùy hosting (còn mở FR-025). Không microservice.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| (trống — mặc định) | — | — |
-| [NEEDS CLARIFICATION] Framework FE | DX/component nếu đội mở rộng | Vanilla đã chạy; đổi có chi phí rewrite UI |
-| [NEEDS CLARIFICATION] Queue backup | Nhiều workspace | Vòng lặp đồng bộ đủ khi số workspace nhỏ |
+| SvelteKit + PWA thay vanilla | Phong yêu cầu mobile-first, installable, offline xem, Web Push | Vanilla không đủ PWA/push/maintain UI lớn một cách bền |
+| Web Push + VAPID | Thông báo tin Fanpage/Zalo khi sale ngoài hiện trường | Chỉ polling Inbox không đủ kịp thời |
+| TikTok Lead connector | Phong chọn tích hợp thật | Giữ màn hình hướng dẫn không đáp ứng lead thật |
+| Restore preview/confirm | An toàn khôi phục dữ liệu khách | Export-only dễ mất dữ liệu khi thao tác nhầm |
+| [NEEDS CLARIFICATION] Queue backup | Scale nhiều workspace | Vòng lặp đồng bộ có thể timeout — chờ Phong |
+| [NEEDS CLARIFICATION] RLS siết audit/memberships | Defense in depth thêm | API-only control đủ cho bản đầu? — chờ Phong |
 
 ## Phase 0 → research.md
 
-Nghiên cứu baseline `main` + PR #1/#2, quyết định giữ stack, liệt kê gap.
+Baseline + quyết định FE/PWA/kênh đã chốt một phần.
 
-## Phase 1 → data-model.md, contracts/, quickstart.md
+## Phase 1 → data-model, contracts, quickstart
 
-Mô hình dữ liệu thống nhất (gồm kênh + merge); hợp đồng API; hướng dẫn chạy local/staging.
+Bổ sung push subscriptions, TikTok connection, restore session; Inbox API; SvelteKit scripts.

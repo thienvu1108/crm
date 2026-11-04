@@ -4,55 +4,59 @@
 
 ## Yêu cầu
 
-- Node.js 24.x
-- PostgreSQL (local hoặc managed)
-- (Tuỳ chọn) tài khoản Google Cloud OAuth, Meta, Zalo
+- Node.js 24.x, PostgreSQL
+- (Tuỳ chọn) Google, Meta, Zalo, TikTok apps; VAPID keys cho Web Push
 
-## Cài Spec Kit CLI (máy dev)
+## Spec Kit
 
 ```sh
 uv tool install specify-cli
 specify --version
 ```
 
-## Clone & nhánh làm việc
+## Repo
 
 ```sh
-git clone https://github.com/thienvu1108/crm.git
-cd crm
-git checkout speckit/rebuild   # nhánh artifacts SDD (local)
+cd /workspace/crm-speckit   # hoặc clone thienvu1108/crm
+git checkout speckit/rebuild
 export SPECIFY_FEATURE=001-rebuild-crm
 ```
 
-## Chạy demo (không cần DB)
-
-```sh
-npm ci
-npm run demo
-# mở http://127.0.0.1:3000 → Trải nghiệm với dữ liệu mẫu
-```
-
-## Chạy máy chủ thật (local)
+## Backend (API)
 
 ```sh
 cp .env.example .env
-# điền DATABASE_URL, ENCRYPTION_KEY (32 bytes base64), GOOGLE_*, PLATFORM_ADMIN_EMAILS, JOB_SECRET
+# DATABASE_URL, ENCRYPTION_KEY, GOOGLE_*, PLATFORM_ADMIN_EMAILS, JOB_SECRET
+# META_*, ZALO_*, TIKTOK_*, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+npm ci
 npm run db:migrate
 npm start
 ```
 
-Tạo không gian bằng tài khoản trong `PLATFORM_ADMIN_EMAILS` → Quản trị nền tảng.
+## Frontend SvelteKit PWA (`web/`)
+
+```sh
+cd web
+npm ci
+npm run dev          # dev server mobile-first
+npm run build        # production build + service worker
+```
+
+Mở viewport mobile (DevTools) để kiểm tra layout. Cài PWA trên Chrome Android staging (HTTPS).
+
+## Demo
+
+Khi thiếu secrets backend: UI SvelteKit chế độ demo / không ghi DB thật — xem banner cảnh báo.
 
 ## Kiểm tra
 
 ```sh
-npm run check
+npm run check                 # API + tests (root)
+cd web && npm run check       # svelte-check / lint nếu có
 ```
 
-## Đọc artifacts SDD
+## Artifacts SDD
 
-1. `.specify/memory/constitution.md`
-2. `specs/001-rebuild-crm/spec.md`
-3. `plan.md` → `research.md` → `data-model.md` → `contracts/` → `tasks.md`
+`.specify/memory/constitution.md` → `specs/001-rebuild-crm/spec.md` → plan → data-model → contracts → tasks.
 
-**Chưa triển khai code rebuild trên nhánh này** — chỉ artifacts + init Spec Kit. Không push/PR cho đến khi Phong duyệt câu hỏi `[NEEDS CLARIFICATION]`.
+**Chưa implement rebuild trên commit artifacts.** Không push cho đến khi Phong trả lời các `[NEEDS CLARIFICATION]` còn lại (hosting, baseline PR, RLS, queue backup).

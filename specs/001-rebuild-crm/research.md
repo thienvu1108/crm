@@ -1,49 +1,45 @@
-# Nghiên cứu: Baseline Mayhomes CRM & quyết định rebuild
+# Nghiên cứu: Baseline & quyết định rebuild
 
 **Date**: 2026-11-04 | **Feature**: 001-rebuild-crm
 
-## 1. Hiện trạng mã nguồn (`main`)
+## 1. Hiện trạng (`main`)
 
-- **Frontend**: `dist/app.js` (~57KB) + `style.css` + `index.html` — SPA vanilla tiếng Việt: Tổng quan, Khách hàng, Lịch hẹn, Báo cáo, Hồ sơ, Cài đặt, Quản trị nền tảng, Kết nối kênh (placeholder Meta/Zalo/TikTok trên main).
-- **Backend**: `server/index.mjs` (~25KB, ít xuống dòng) gom router/API; `google.mjs`, `security.mjs`, `migrate.mjs`, `preview.mjs`.
-- **DB**: `database/001_initial.sql` — users, workspaces, memberships, domains, sessions, oauth_states, customers, tasks, activities, connections, calendar_links, audit_log + RLS.
-- **Deploy**: Vercel (`api/index.mjs`, `vercel.json`), Dockerfile, `VERCEL.md`.
-- **Test**: security, tenant-isolation (PGlite), vercel-adapter.
+- FE vanilla `dist/app.js` (~57KB) — sẽ **thay bằng SvelteKit `web/`**.
+- Backend Node nén trong `server/index.mjs` + Google/security/migrate; DB `001_initial.sql` + RLS.
+- Vercel adapter + Dockerfile.
+- PR #1 kênh Meta/Zalo; PR #2 identity/merge (chưa merge main).
 
-## 2. PR chưa merge (hành vi cần đưa vào đặc tả)
+## 2. Quyết định đã chốt (Phong, 2026-11-04)
 
-### PR #1 `feat/meta-zalo-oa-channels`
-- Bảng `channel_connections`, `channel_routes`, `channel_identities`, `channel_messages` + RLS.
-- Meta OAuth/Page token, webhook verify + `X-Hub-Signature-256`, Send API 24h.
-- Zalo OAuth v4 PKCE / token thủ công, refresh, MAC webhook, gửi tin tư vấn.
-- UI kết nối + hội thoại trong hồ sơ; giới hạn 1 Page + 1 OA / workspace; chủ yếu văn bản.
+| Chủ đề | Quyết định |
+|---|---|
+| Backend | Giữ Node.js 24 + PostgreSQL |
+| Frontend | **SvelteKit**, mobile-first, **PWA** (cài được, offline cache xem, Web Push Fanpage/Zalo) |
+| Inbox đa kênh | **IN** (Fanpage + Zalo + Instagram nhận) |
+| TikTok Lead | **IN** — tích hợp thật |
+| Restore backup | **IN** — preview + confirm |
+| Instagram | **Chỉ nhận cơ bản** (không gửi chuyên biệt) |
+| UI khóa/mở workspace | **IN** |
+| Kho sản phẩm / nhiều cơ hội | **Hoãn** (non-goal giai đoạn này) |
 
-### PR #2 `feat/channel-identity-match-merge` (stack trên #1)
-- Khớp SĐT; nhiều identity; avatar/tên; `merge_suggestions`; `customers.merged_into`.
-- Gộp thủ công chuyển messages/identities/activities/tasks.
+## 3. Còn mở
 
-## 3. Quyết định kỹ thuật
+| Chủ đề | Ghi chú |
+|---|---|
+| Hosting production | Vercel vs VPS/Docker vs cả hai |
+| PR #1/#2 baseline | Merge trước vs tái hiện trong rebuild |
+| RLS hardening | Siết audit/memberships/domains? |
+| Backup job | Đồng bộ vs queue |
 
-| Chủ đề | Quyết định | Lý do |
-|---|---|---|
-| Runtime | Giữ Node.js 24 ESM | Đã có, engines khóa 24.x, Vercel OK |
-| DB | Giữ PostgreSQL + `pg` + RLS FORCE | Cách ly tenant đã thiết kế đúng hướng |
-| Auth | Giữ Google OAuth PKCE + session hash | Phù hợp sale dùng Gmail; không password |
-| FE | Mặc định vanilla; tách module | [NEEDS CLARIFICATION] nếu Phong muốn framework |
-| Kênh | Đưa hành vi PR #1+#2 vào phạm vi rebuild | User đã nêu Fanpage+Zalo; PR là nguồn sự thật |
-| TikTok | Giữ non-goal hoặc hướng dẫn | Chưa có connector thật |
-| Restore | Non-goal trừ khi Phong chọn | README cảnh báo cần preview/confirm |
-| Hosting | Hỗ trợ cả Vercel adapter + `npm start` | [NEEDS CLARIFICATION] production chính |
+## 4. PWA / Push notes
 
-## 4. Rủi ro
-
-- OAuth/domain thật chưa kiểm thử end-to-end trên `crm.mayhomes.com.vn`.
-- Meta/Zalo App Review bắt buộc trước khách thật.
-- File JS nén khó review → rebuild phải format/module hóa.
-- Job backup đồng bộ có thể timeout khi nhiều workspace.
+- Dùng `@vite-pwa/sveltekit` (hoặc Workbox) cho precache shell + runtime cache GET idempotent.
+- Offline: đọc cache; mutation → fail rõ hoặc outbox (outbox optional MVP: báo offline đủ).
+- Web Push: lưu `push_subscriptions`; server gửi khi inbound Meta/Zalo; payload rút gọn tiếng Việt.
+- iOS: PWA push cần phiên bản/OS hỗ trợ; document giới hạn trong README.
 
 ## 5. Alternatives rejected
 
-- Đổi sang Python/Go: chi phí lớn, ít lợi ích tức thì.
-- Bỏ RLS chỉ tin app: yếu defense-in-depth.
-- Cookie tài khoản cá nhân FB/Zalo: bị từ chối bởi chính sách sản phẩm và rủi ro ToS.
+- Giữ vanilla: bị Phong bác vì thiếu PWA/mobile-first bền.
+- React/Vue: không chọn; SvelteKit đã chốt.
+- Làm nhiều cơ hội/sản phẩm ngay: hoãn để tập trung kênh + PWA + restore.
